@@ -56,3 +56,4 @@ app.*.map.json
 /functions/.env.*
 /functions/node_modules/
 firebase-debug.log*
+!/functions/.env.example
