@@ -1,1 +1,6 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # iOS 빌드가 내려받은 패키지 소스(build/ios/SourcePackages)까지 검사하지 않도록 뺀다.
+    - build/**
