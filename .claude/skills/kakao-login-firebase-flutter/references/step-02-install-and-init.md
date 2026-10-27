@@ -100,6 +100,14 @@ void main() async {
 ## 검증
 
 - `flutter analyze`를 실행한다. 에러와 경고가 없어야 한다.
+  - **함정**: Firebase 패키지를 설치하면 iOS용 패키지 소스가 `build/ios/SourcePackages`에 내려받아진다. `flutter analyze`가 이 폴더까지 검사해서 우리 코드와 상관없는 이슈가 수백 개 나올 수 있다.
+  - 이슈 경로가 전부 `build/`로 시작하면, `analysis_options.yaml`에 아래를 추가하고 다시 실행한다. 이미 있으면 건너뛴다.
+    ```yaml
+    analyzer:
+      exclude:
+        - build/**
+    ```
+- Android 빌드에서 `Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): cloud_functions, firebase_auth, firebase_core` 경고가 나올 수 있다. 앞으로 나올 Flutter 버전에 대한 예고이고, 지금 빌드에는 영향이 없다. 사용자에게 무시해도 된다고 알린다.
 - `lib/firebase_options.dart`가 있는지, 그 안의 `projectId`가 `PROJECT_ID`와 같은지 확인한다.
 - 네이티브 앱 키가 1단계 스킴의 키와 같은지 확인한다. 1단계를 아직 하지 않았으면 비교는 건너뛰고 1단계도 필요하다고 안내한다.
 
