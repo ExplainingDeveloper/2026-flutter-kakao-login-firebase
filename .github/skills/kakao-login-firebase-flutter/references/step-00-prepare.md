@@ -1,0 +1,220 @@
+# 0단계: 준비 – 카카오 디벨로퍼스, 로그인 버튼 이미지, Firebase
+
+## 목적
+
+코드 작업(1~7단계) 전에 사용자가 직접 해야 하는 일을 안내한다.
+- 카카오 디벨로퍼스 콘솔 설정
+- 공식 로그인 버튼 이미지 받기
+- Firebase 프로젝트, Blaze 요금제, CLI 준비
+
+이 단계에서는 주로 안내를 한다. 스킬이 대신할 수 있는 일은 직접 해서 사용자가 값을 복사해 붙여넣기만 하면 되게 만든다.
+- 프로젝트에서 패키지명과 번들 ID 읽기
+- 디버그 키 해시 계산하기
+- 이미지 폴더 만들기
+- Firebase CLI, FlutterFire CLI 설치 여부 확인과 설치
+
+콘솔 설정을 빠뜨리면 코드가 맞아도 로그인이 실패한다. 그러면 원인을 찾기 어렵기 때문에 맨 앞에서 챙긴다.
+
+## A. 값 미리 준비하기 (스킬이 직접)
+
+안내문에 넣을 값을 프로젝트에서 읽거나 계산한다.
+
+1. **Android 패키지명**: `android/app/build.gradle.kts`(또는 `build.gradle`)의 `applicationId`
+2. **iOS 번들 ID**: `ios/Runner.xcodeproj/project.pbxproj`에서 Runner 타깃의 `PRODUCT_BUNDLE_IDENTIFIER`. `RunnerTests`로 끝나는 값은 제외한다.
+3. **디버그 키 해시**: 키 해시는 서명 인증서의 SHA-1 지문을 Base64로 바꾼 값이다. 그래서 `keytool`로 SHA-1 지문을 뽑고 Base64로 바꾼다.
+   이 방법은 `openssl`이 필요 없어서 macOS, Linux, Windows에서 똑같이 된다. Windows에는 보통 `openssl`이 없다.
+
+   **1) SHA-1 지문 뽑기**
+   ```bash
+   keytool -list -v -alias androiddebugkey -keystore <키스토어 경로> -storepass android
+   ```
+   - 출력에서 `SHA1:`로 시작하는 줄의 값을 쓴다. 예: `25:11:05:54:…:CF:EC:11`
+   - 키스토어 경로
+     - macOS, Linux: `~/.android/debug.keystore`
+     - Windows: `%USERPROFILE%\.android\debug.keystore` (PowerShell에서는 `$env:USERPROFILE\.android\debug.keystore`)
+   - `keytool`이 PATH에 없으면 Android Studio에 들어 있는 JDK를 쓴다.
+     - macOS: `/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool`
+     - Windows (기본 설치 경로): `C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe`. 없으면 Android Studio 설치 폴더 안의 `jbr\bin`을 찾는다.
+
+   **2) 16진수 지문을 Base64로 바꾸기**
+   콜론(`:`)을 빼고, 16진수 두 자리씩 바이트로 바꾼 뒤 Base64로 인코딩한다. 결과가 같으면 어떤 도구를 써도 된다.
+   - macOS, Linux
+     ```bash
+     echo "<SHA1 값>" | tr -d ':' | xxd -r -p | base64
+     ```
+   - Windows PowerShell
+     ```powershell
+     $hex = "<SHA1 값>" -replace ':', ''
+     $bytes = for ($i = 0; $i -lt $hex.Length; $i += 2) { [Convert]::ToByte($hex.Substring($i, 2), 16) }
+     [Convert]::ToBase64String([byte[]]$bytes)
+     ```
+
+   **확인할 것**
+   - 결과는 `JREFVCcCYUji0lg6nQ2RQ2PP7BE=`처럼 `=`로 끝나는 28자 Base64 문자열이다.
+   - 키스토어 파일이 없으면 Android 빌드를 한 번도 하지 않은 것이다. 계산을 건너뛰고 "Android 기기나 에뮬레이터로 `flutter run`을 한 번 실행한 뒤 0단계를 다시 실행하면 계산할 수 있다"고 안내한다.
+   - `SHA1:` 줄이 없으면 keytool이 실패한 것이다. keytool 에러 메시지를 보여주고 계산에 실패했다고 안내한다.
+   - 다른 방법(`openssl` 파이프)으로 계산했는데 `2jmj7l5rSw0yVb/vlWAYkK/YBwk=`가 나오면 실패한 것이다. 빈 입력의 해시이므로 사용자에게 보여주지 않는다.
+   - keytool이 `SHA1withRSA ... security risk` 경고를 출력해도 무시한다. 디버그 키에서는 정상이다.
+
+패키지명이나 번들 ID가 `com.example.`로 시작하면 한 줄로 알려준다. 출시 전에 바꾸는 경우가 많고, 바꾸면 콘솔에도 다시 등록해야 한다.
+
+## B. 무엇을 할지 먼저 묻기
+
+0단계를 시작하면 A의 값 준비를 마친 뒤, 바로 안내를 쏟아내지 말고 먼저 묻는다. 사용자마다 이미 해 둔 작업이 다르기 때문이다.
+
+- 질문: "0단계에서 어떤 준비를 할까요? (여러 개 고를 수 있어요)"
+- 여러 개를 고를 수 있게 묻는다 (AskUserQuestion이면 `multiSelect: true`).
+- 선택지:
+  - `카카오 콘솔 설정`: 앱 만들기, 키, 플랫폼 등록, 로그인 켜기, 동의항목 (C)
+  - `로그인 버튼 이미지`: 공식 버튼 PNG 받기 (D)
+  - `Firebase 준비`: 프로젝트 만들기, Blaze 요금제, Authentication 시작, CLI (F)
+- 아무것도 고르지 않으면 0단계를 건너뛴다.
+
+고른 작업만 C, D, F 순서로 진행한다. 처음 시작하는 사용자라면 셋 다 필요하다고 질문 본문에 적는다.
+
+## 단계별 안내 방식 (C, D, F 공통)
+
+- 한 번에 전부 보여주지 않는다. **한 단계씩** 어디를 누르고 무엇을 입력하는지 보여준다.
+- 각 단계를 보여준 뒤 질문 도구로 기다린다.
+  - `완료했어요` → 다음 단계
+  - `잘 안 돼요` → 무엇이 안 되는지 묻고 도와준다. 화면 메뉴 이름이 안내와 다르면 사용자가 본 이름을 물어서 맞춰 안내한다. 카카오 콘솔 화면은 개편될 수 있다.
+  - `나중에 할게요` → 남은 단계를 완료 보고에 적고 다음 작업으로 넘어간다.
+- 클릭 경로는 `[메뉴] → [버튼]` 형식으로, 입력할 값은 코드 블록으로 보여준다. 사용자가 그대로 복사할 수 있게 한다.
+
+## C. 콘솔 설정 (한 단계씩)
+
+**C-1. 앱 만들기**
+1. https://developers.kakao.com 에 카카오 계정으로 로그인
+2. 상단바 **[앱]** 클릭
+3. **[+ 앱 생성]** 클릭
+4. 필수 항목 입력
+   - **앱 이름**: 사용자에게 보일 이름 (예: `카카오 로그인 연습`)
+   - **회사명**: 개인이면 본인 이름이나 닉네임
+   - **카테고리**: 앱 성격에 맞게 선택
+5. 저장해서 앱을 만든다.
+
+**C-2. 네이티브 앱 키와 앱 ID 확인**
+- 앱을 만들면 그 앱의 화면에서 앱 키를 볼 수 있다. 여러 키 중 **네이티브 앱 키**를 복사한다.
+  - REST API 키, JavaScript 키와 헷갈리기 쉽다. 이름이 정확히 "네이티브 앱 키"인지 확인하라고 강조한다.
+- **앱 ID**(숫자)도 함께 받는다. 앱 관리 페이지 상단이나 앱 목록에 보인다.
+  - 3단계 서버(Cloud Functions)가 "이 카카오 토큰이 우리 앱에서 발급된 것인지" 확인할 때 쓴다.
+- **"전체"로 실행 중이면** 이 자리에서 두 값을 받는다. SKILL.md "공통 정보 모으기"의 검증을 그대로 적용하고, 뒤 단계에서 다시 묻지 않는다.
+- **0단계만 실행 중이면** 두 값을 메모해 두라고 안내한다. 1단계와 3단계에서 입력하게 된다.
+
+**C-3. 플랫폼 등록** (참고: https://developers.kakao.com/docs/ko/app-setting/app#key)
+- 앱 설정의 **[플랫폼]** 메뉴에서 Android와 iOS를 각각 등록한다. A에서 구한 값을 채워 보여준다.
+- Android
+  ```
+  패키지명: <A-1 값>
+  키 해시: <A-3 값>
+  ```
+  이 키 해시는 디버그용이다. 출시할 때는 릴리스 키 해시도 추가해야 한다.
+- iOS
+  ```
+  번들 ID: <A-2 값>
+  ```
+
+**C-4. 카카오 로그인 켜기**
+- **[카카오 로그인]** 메뉴 → 활성화 설정 **ON**
+- 참고: https://developers.kakao.com/docs/ko/kakaologin/prerequisite#kakao-login-activate
+
+**C-5. 동의항목 설정**
+- **[카카오 로그인] → [동의항목]** 에서 5단계 홈 화면에 보여줄 정보를 설정한다. 3단계 서버가 이 정보를 Firebase 사용자의 이름과 사진으로 넣는다.
+  - 닉네임 (`profile_nickname`)
+  - 프로필 사진 (`profile_image`)
+- 참고: https://developers.kakao.com/docs/ko/kakaologin/prerequisite#scope-setting
+
+리다이렉트 URI 등록은 웹 서비스용이다. 이 스킬은 모바일 앱만 다루므로 안내하지 않는다.
+
+## D. 로그인 버튼 이미지 (한 단계씩)
+
+공식 리소스 페이지는 다운로드 링크를 직접 노출하지 않는다. 그래서 스킬이 이미지를 자동으로 받을 수 없고, 사용자가 직접 받아야 한다.
+
+**D-1. 폴더 준비 (스킬이 직접)**
+- 프로젝트 루트에 `assets/images/kakao/` 폴더를 만든다. 이미 있으면 그대로 둔다.
+- 파일 탐색기로 폴더를 열어 준다. 사용자가 받은 파일을 끌어다 넣기 쉽다.
+  - macOS: `open assets/images/kakao`
+  - Windows: `explorer assets\images\kakao`
+- 폴더에 PNG가 이미 있으면 파일 목록을 보여주고, 바꾸고 싶을 때만 아래를 진행하라고 안내한다.
+
+**D-2. 이미지 받기**
+1. 아래 링크를 열어 카카오 로그인 버튼 리소스 페이지로 간다. 링크를 맨 앞에 보여준다. 사용자가 메뉴를 찾아 헤매지 않게 하기 위해서다.
+   ```
+   https://developers.kakao.com/tool/resource/login
+   ```
+   - 링크가 열리지 않으면: 카카오 디벨로퍼스 상단바 **[도구]** → **[리소스 다운로드]** → **[카카오 로그인]**
+2. 버튼 종류 고르기
+   - **완성형**: 노란 바탕에 말풍선 심볼 + "카카오 로그인" 글자 (한국어 서비스면 **완성형 한국어** 추천)
+   - **축약형**: "로그인"만 있는 작은 버튼
+3. 다운로드한 ZIP의 압축을 풀고, **PNG 파일**만 열어 둔 `assets/images/kakao/` 폴더에 넣는다.
+   - PSD는 편집용 원본이라 넣지 않는다.
+   - 같은 이미지가 여러 크기로 있으면 가장 큰 것 하나만 넣어도 된다.
+4. 디자인 가이드 핵심 한 줄: 이미지를 늘리거나 색을 바꾸면 안 되고, 비율을 유지한 채 크기만 조절한다. (https://developers.kakao.com/docs/ko/kakaologin/design-guide)
+
+**D-3. 확인 (스킬이 직접)**
+- 사용자가 `완료했어요`를 고르면 `assets/images/kakao/`에 PNG가 있는지 직접 확인한다.
+- 없으면 폴더 위치를 다시 알려준다. PSD나 ZIP만 들어 있으면 PNG를 넣어야 한다고 알려준다.
+
+`pubspec.yaml`에 에셋을 등록하고 버튼에 연결하는 일은 4단계에서 한다.
+
+## F. Firebase 준비 (한 단계씩)
+
+**F-1. Firebase 프로젝트 만들기**
+1. https://console.firebase.google.com 에 Google 계정으로 로그인
+2. **[프로젝트 추가]** (또는 **[Firebase 프로젝트 만들기]**)
+3. 프로젝트 이름 입력 (예: `kakao-login-firebase`). 아래에 자동으로 만들어지는 **프로젝트 ID**를 확인한다.
+4. Google Analytics는 이 강의에 필요 없다. 꺼도 된다.
+5. 만들기가 끝나면 **프로젝트 ID**를 받는다. SKILL.md "공통 정보 모으기"의 검증을 적용한다.
+
+**F-2. Blaze 요금제로 바꾸기**
+- 3단계의 Cloud Functions는 Blaze(종량제) 요금제에서만 배포할 수 있다. 무료(Spark) 요금제에서는 배포가 실패한다.
+- 콘솔 왼쪽 아래 요금제 표시(**Spark**) → **[업그레이드]** → **Blaze** 선택 → 결제 계정 연결
+- 무료 사용량이 있어서 연습이나 작은 앱은 보통 비용이 나오지 않는다. 그래도 카드가 등록되므로 **예산 알림**을 걸어 두라고 안내한다. 업그레이드 화면에서 예산 금액을 정할 수 있다.
+- 요금 근거: https://firebase.google.com/pricing
+
+**F-3. Authentication 시작하기**
+- 콘솔 왼쪽 **[빌드] → [Authentication]** → **[시작하기]**
+- 로그인 제공업체 목록에 카카오는 없다. 이 스킬은 서버에서 만든 커스텀 토큰으로 로그인하므로 제공업체를 따로 켜지 않는다.
+- 이 버튼을 누르지 않은 프로젝트는 Authentication이 준비되지 않아 로그인할 때 에러가 날 수 있다. 그래서 눌러 두게 한다.
+
+**F-4. CLI 준비 (스킬이 확인, 로그인은 사용자)**
+2·3단계에서 두 CLI를 쓴다. 스킬이 설치 여부를 확인하고, 없으면 설치한다.
+
+0. **Node.js 22 이상** (`node -v`)
+   - Firebase CLI 설치와 3단계 함수 배포에 필요하다. 함수에 쓰는 `firebase-admin` 최신판이 Node 22 이상을 요구해서, Node 20에서는 3단계 배포가 실패한다.
+   - 없거나 22보다 낮으면 설치를 안내한다. nvm을 쓰면 `nvm install 22 && nvm use 22`, 아니면 https://nodejs.org 의 LTS.
+
+1. **Firebase CLI** (`firebase`)
+   - 확인: `firebase --version`
+   - 없으면: `npm install -g firebase-tools`. `npm`이 없으면 Node.js(LTS)를 먼저 설치해야 한다고 안내하고, https://nodejs.org 를 알려준다.
+2. **Firebase 로그인** (사용자가 직접)
+   - 브라우저로 Google 계정을 고르는 대화형 명령이다. 에이전트가 실행하지 않는다. 사용자에게 터미널에서 실행해 달라고 한다.
+     ```bash
+     firebase login
+     ```
+   - 사용자가 끝났다고 하면 `firebase projects:list`로 F-1의 프로젝트가 보이는지 확인한다. 안 보이면 다른 Google 계정으로 로그인한 것이다. `firebase logout` 후 다시 로그인하라고 안내한다.
+3. **FlutterFire CLI** (`flutterfire`)
+   - 확인: `flutterfire --version`
+   - 없으면: `dart pub global activate flutterfire_cli`
+   - **함정**: 컴퓨터에 Flutter와 별개로 설치된 `dart`(예: Homebrew로 설치한 Dart)가 먼저 잡히면, `flutterfire`가 `doesn't support Dart x.y.z` 에러로 실행되지 않는다. 이때는 Flutter에 들어 있는 Dart로 설치하고 실행한다.
+     ```bash
+     flutter pub global activate flutterfire_cli
+     flutter pub global run flutterfire_cli:flutterfire --version
+     ```
+     2단계에서도 `flutterfire` 대신 `flutter pub global run flutterfire_cli:flutterfire`를 쓴다. 어떤 방식으로 실행했는지 2단계까지 기억한다.
+   - `flutterfire`를 찾을 수 없다고 나오면 `~/.pub-cache/bin`이 PATH에 없는 것이다. 위 `flutter pub global run` 방식으로 실행하면 PATH와 상관없이 된다.
+
+## E. 마무리
+
+- **0단계만 실행한 경우**: 완료 보고를 하고 끝낸다. 다음은 1단계라고 알린다.
+- **"전체"로 실행한 경우**: 바로 1단계로 넘어간다. 0단계에서 받은 값(네이티브 앱 키, 앱 ID, 프로젝트 ID)을 그대로 쓴다.
+- 콘솔 설정을 끝내지 않았어도 1단계 코드 작업은 진행할 수 있다. 그래서 막지 않는다. 남은 작업은 완료 보고에 적는다.
+- 단, Firebase 준비(F)가 끝나지 않으면 2단계의 `flutterfire configure`와 3단계 배포가 실패한다. 2단계를 시작하기 전에 F가 끝났는지 확인한다.
+
+## 완료 보고에 포함할 내용
+
+- 끝낸 작업과 남은 작업 (C-1~C-5, D, F-1~F-4 중)
+- 콘솔에 등록할 값: 패키지명, 번들 ID, 키 해시
+- 넣은 이미지 파일 이름
+- Firebase 프로젝트 ID, 요금제(Blaze 여부), CLI 설치 상태
+- 키 해시 계산에 실패했으면 그 이유와 대안
