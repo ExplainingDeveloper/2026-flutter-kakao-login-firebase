@@ -13,6 +13,7 @@ description: Flutter 앱에 카카오 로그인을 붙이고, 로그인한 사�
 ## 왜 이런 구조인가
 
 카카오는 Firebase Authentication이 기본으로 지원하는 로그인 제공업체가 아니다. 연결 방법은 두 가지다.
+
 - **OIDC 제공업체로 등록**: Identity Platform 업그레이드가 필요하고, SAML/OIDC 로그인은 무료 사용량이 아주 작다.
 - **커스텀 토큰 (이 스킬의 방식)**: 서버가 카카오 토큰을 확인하고 Firebase 커스텀 토큰을 발급한다. 서버는 Firebase Cloud Functions를 쓴다. Cloud Functions는 Blaze(종량제) 요금제가 필요하지만 무료 사용량 안에서는 비용이 나오지 않는다.
 
@@ -29,16 +30,16 @@ description: Flutter 앱에 카카오 로그인을 붙이고, 로그인한 사�
 
 ## 단계 목록
 
-| 번호 | 단계 | 지침 파일 |
-|---|---|---|
-| 0 | 준비 – 카카오 디벨로퍼스 콘솔, 로그인 버튼 이미지, Firebase 프로젝트·Blaze·CLI (사용자 직접 + 스킬 안내) | `references/step-00-prepare.md` |
-| 1 | 프로젝트 설정 – 커스텀 URL 스킴 (Android / iOS) | `references/step-01-custom-url-scheme.md` |
-| 2 | 카카오 SDK·Firebase 설치와 초기화 (pubspec.yaml, flutterfire configure, main.dart) | `references/step-02-install-and-init.md` |
-| 3 | Cloud Functions – 카카오 토큰 확인 → 커스텀 토큰 발급, 회원 삭제, 배포 | `references/step-03-cloud-functions.md` |
-| 4 | 로그인 로직 (카카오 로그인 → 함수 → Firebase 로그인, 로그인 버튼) | `references/step-04-login.md` |
-| 5 | Firebase 사용자 정보 (홈 화면) | `references/step-05-user-info.md` |
-| 6 | 자동 로그인 (Firebase 로그인 상태 확인) | `references/step-06-auto-login.md` |
-| 7 | 로그아웃 / 회원 탈퇴 (Firebase 계정 삭제 + 카카오 연결 끊기) | `references/step-07-logout-delete.md` |
+| 번호 | 단계                                                                                                     | 지침 파일                                 |
+| ---- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 0    | 준비 – 카카오 디벨로퍼스 콘솔, 로그인 버튼 이미지, Firebase 프로젝트·Blaze·CLI (사용자 직접 + 스킬 안내) | `references/step-00-prepare.md`           |
+| 1    | 프로젝트 설정 – 커스텀 URL 스킴 (Android / iOS)                                                          | `references/step-01-custom-url-scheme.md` |
+| 2    | 카카오 SDK·Firebase 설치와 초기화 (pubspec.yaml, flutterfire configure, main.dart)                       | `references/step-02-install-and-init.md`  |
+| 3    | Cloud Functions – 카카오 토큰 확인 → 커스텀 토큰 발급, 회원 삭제, 배포                                   | `references/step-03-cloud-functions.md`   |
+| 4    | 로그인 로직 (카카오 로그인 → 함수 → Firebase 로그인, 로그인 버튼)                                        | `references/step-04-login.md`             |
+| 5    | Firebase 사용자 정보 (홈 화면)                                                                           | `references/step-05-user-info.md`         |
+| 6    | 자동 로그인 (Firebase 로그인 상태 확인)                                                                  | `references/step-06-auto-login.md`        |
+| 7    | 로그아웃 / 회원 탈퇴 (Firebase 계정 삭제 + 카카오 연결 끊기)                                             | `references/step-07-logout-delete.md`     |
 
 표의 순서가 곧 "전체" 실행 순서다.
 새 단계를 추가할 때는 `references/step-NN-<이름>.md`를 만들고 이 표에 한 줄을 추가한다.
@@ -68,13 +69,14 @@ description: Flutter 앱에 카카오 로그인을 붙이고, 로그인한 사�
 
 여러 단계에서 같은 값을 쓴다. 필요한 단계를 시작하기 직전에 한 번만 받아서 이후 모든 단계에 다시 쓴다. 같은 질문을 두 번 하면 사용자가 번거롭다.
 
-| 값 | 쓰는 단계 | 받는 시점 |
-|---|---|---|
-| 카카오 **네이티브 앱 키** | 1, 2 | "전체"면 0단계 C-2. 아니면 1 또는 2단계 직전 |
-| 카카오 **앱 ID** (숫자) | 3 | "전체"면 0단계 C-2. 아니면 3단계 직전 |
-| Firebase **프로젝트 ID** | 2, 3 | "전체"면 0단계 F-1. 아니면 2 또는 3단계 직전 |
+| 값                        | 쓰는 단계 | 받는 시점                                    |
+| ------------------------- | --------- | -------------------------------------------- |
+| 카카오 **네이티브 앱 키** | 1, 2      | "전체"면 0단계 C-2. 아니면 1 또는 2단계 직전 |
+| 카카오 **앱 ID** (숫자)   | 3         | "전체"면 0단계 C-2. 아니면 3단계 직전        |
+| Firebase **프로젝트 ID**  | 2, 3      | "전체"면 0단계 F-1. 아니면 2 또는 3단계 직전 |
 
 **네이티브 앱 키**
+
 1. 먼저 프로젝트에 이미 키가 있는지 찾는다.
    - `android/app/src/main/AndroidManifest.xml`, `ios/Runner/Info.plist`에서 `kakao[0-9a-f]{32}` 패턴을 찾는다.
    - `lib/` 아래에서 `nativeAppKey`를 찾는다.
@@ -87,12 +89,14 @@ description: Flutter 앱에 카카오 로그인을 붙이고, 로그인한 사�
    - REST API 키, JavaScript 키도 겉모습이 같다. 잘못된 키를 넣으면 로그인 후 앱으로 돌아오지 못하므로 "네이티브 앱 키가 맞는지" 한 번 짚어준다.
 
 **카카오 앱 ID**
+
 - 먼저 `functions/.env`에 `KAKAO_APP_ID=`가 있는지 찾는다. 있으면 그 값을 쓸지 확인한다.
 - 없으면 받는다. 위치: 카카오 디벨로퍼스 **앱 관리 페이지 상단** 또는 **앱 목록**에 보이는 앱 ID.
 - 숫자로만 되어 있어야 한다. 앞뒤 공백을 지우고, 숫자가 아닌 문자가 있으면 다시 받는다.
 - 네이티브 앱 키와 다른 값이다. 32자리 16진수를 입력했으면 앱 키를 잘못 넣은 것이므로 다시 받는다.
 
 **Firebase 프로젝트 ID**
+
 - 먼저 `.firebaserc`의 `projects.default`, `lib/firebase_options.dart`의 `projectId`를 찾는다. 있으면 그 값을 쓸지 확인한다.
 - 없으면 `firebase projects:list`로 목록을 보여주고 고르게 한다. CLI를 쓸 수 없으면 직접 받는다. 위치: **Firebase 콘솔 > 프로젝트 설정 > 일반 > 프로젝트 ID**
 - 프로젝트 "이름"이 아니라 "ID"다. ID는 소문자, 숫자, 하이픈으로 되어 있다.
