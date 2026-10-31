@@ -1,5 +1,5 @@
 name: kakao_login_firebase
-description: 'A new Flutter project.'
+description: "A new Flutter project."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -7,12 +7,8 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
-  cloud_functions: ^7.0.1
-  firebase_auth: ^7.0.1
-  firebase_core: ^5.1.0
   flutter:
     sdk: flutter
-  kakao_flutter_sdk_user: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -21,5 +17,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/kakao/
